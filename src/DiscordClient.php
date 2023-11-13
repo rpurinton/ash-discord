@@ -98,7 +98,7 @@ class DiscordClient
 		}
 		$in_content = $message->d->content;
 		$in_content = str_replace("<@{$this->bot_id}>", "ash", $in_content);
-		$in_content = $this->admins[$message->d->author->id] . " says: " . $in_content;
+		$in_content = $this->admins[$message->d->author->id] . " said: " . $in_content;
 		$in_content = escapeshellarg($in_content);
 		$cmd = "ash /m $in_content";
 		while (strpos($cmd, "  ") !== false) $cmd = str_replace("  ", " ", $cmd);
