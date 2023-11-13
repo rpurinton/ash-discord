@@ -2,7 +2,7 @@
 
 namespace RPurinton\AshDiscord;
 
-require_once(__DIR__ . "/ThreadManager.php");
+require_once(__DIR__ . "/DiscordClient.php");
 
 class ProcessManager
 {
@@ -23,7 +23,7 @@ class ProcessManager
 			case "wrapper":
 				return $this->wrapper();
 			case "main":
-				return new ThreadManager;
+				return new DiscordClient("bot_id", "bot_token");
 			default:
 				die("ERROR: Invalid Command\n");
 		}
