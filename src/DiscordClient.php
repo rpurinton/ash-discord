@@ -2,20 +2,19 @@
 
 namespace RPurinton\AshDiscord;
 
+require_once(__DIR__ . "/vendor/autoload.php");
+
 use React\Async;
 
-class DiscordClient extends ConfigLoader
+class DiscordClient
 {
 	private $loop = null;
 	private $discord = null;
-	private $bunny = null;
 	private $bot_id = null;
-	private $promptwriter = null;
 	private $discord_roles = [];
 
 	function __construct(int $bot_id, string $bot_token)
 	{
-		parent::__construct();
 		$this->bot_id = $bot_id;
 		$this->loop = \React\EventLoop\Loop::get();
 		$discord_config["token"] = $bot_token;
@@ -101,55 +100,10 @@ class DiscordClient extends ConfigLoader
 		return true;
 	}
 
-	private function outbox($message)
-	{
-		switch ($message["function"]) {
-			case "DIE":
-				return $this->DIE();
-			case "MESSAGE_CREATE":
-				return $this->MESSAGE_CREATE($message);
-			case "GET_CHANNEL":
-				return $this->GET_CHANNEL($message);
-			case "START_TYPING":
-				return $this->START_TYPING($message);
-		}
-		return true;
-	}
-
-	private function DIE()
-	{
-		echo ("DiscordClient_{$this->bot_id} STOP cmd received.\n");
-		$this->loop->addPeriodicTimer(1, function () {
-			die();
-		});
-		return true;
-	}
-
 	private function START_TYPING($message)
 	{
 		$channel = $this->discord->getChannel($message["channel_id"]);
 		if ($channel) $channel->broadcastTyping();
-		return true;
-	}
-
-	private function GET_CHANNEL($message)
-	{
-		$guild = $this->discord->guilds[$message["guild_id"]];
-		$channel = $guild->channels[$message["channel_id"]];
-		$history = Async\await($channel->getMessageHistory(['limit' => 100]));
-		$publish_message = $message;
-		$publish_message["history"] = $history;
-		$publish_message["channel_name"] = $channel->name;
-		$publish_message["channel_topic"] = $channel->topic;
-		$publish_message["roles"] = $guild->roles;
-		foreach ($guild->roles as $key => $value) $this->discord_roles[$key] = $value->name;
-		$bot_member = $guild->members[$this->bot_id];
-		$bot_roles = [];
-		foreach ($bot_member->roles as $role) {
-			$bot_roles[] = $role->id;
-		}
-		$publish_message["bot_roles"] = $bot_roles;
-		$this->bunny->publish($message["queue"], $publish_message);
 		return true;
 	}
 
