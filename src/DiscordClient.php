@@ -112,8 +112,10 @@ class DiscordClient
 
 	private function MESSAGE_CREATE($message, $result)
 	{
+		$guild = $this->discord->guilds[$message->d->guild_id];
+		$channel = $guild->channels[$message->d->channel_id];
 		if (strlen($result) < 2000) {
-			$message->channel->sendMessage($result);
+			$channel->sendMessage($result);
 			return true;
 		}
 		$result = $result . " ";
@@ -169,11 +171,11 @@ class DiscordClient
 				array_unshift($lines, $line);
 				// if last char of result is a space then remove it
 				if (substr($result, -1) == " ") $result = substr($result, 0, -1);
-				$message->channel->sendMessage($result);
+				$channel->sendMessage($result);
 				$result = "";
 			}
 		}
-		if (strlen(trim($result))) $message->channel->sendMessage(trim($result));
+		if (strlen(trim($result))) $channel->sendMessage(trim($result));
 		return true;
 	}
 }
