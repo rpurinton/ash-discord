@@ -1,6 +1,5 @@
 {
     "require": {
-        "team-reflex/discord-php": "^7.2",
-        "bunny/bunny": "@dev"
+        "team-reflex/discord-php": "^7.2"
     }
 }

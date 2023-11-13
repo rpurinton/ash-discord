@@ -1,6 +1,6 @@
 <?php
 
-namespace RPurinton\template;
+namespace RPurinton\ash-discord;
 
 require_once(__DIR__ . "/vendor/autoload.php");
 

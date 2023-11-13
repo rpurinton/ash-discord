@@ -1,6 +1,6 @@
 <?php
 
-namespace RPurinton\template;
+namespace RPurinton\ash-discord;
 
 require_once(__DIR__ . "/ThreadManager.php");
 
@@ -34,8 +34,8 @@ class ProcessManager
 		$ps = array();
 		$ps2 = array();
 		$ps3 = array();
-		exec("ps aux | grep \"template wrapper\"", $ps);
-		exec("ps aux | grep \"template main\"", $ps);
+		exec("ps aux | grep \"ash-discord wrapper\"", $ps);
+		exec("ps aux | grep \"ash-discord main\"", $ps);
 		foreach ($ps as $line) if (!strpos($line, "grep")) $ps2[] = $line;
 		foreach ($ps2 as $line) {
 			$line = $this->replace("  ", " ", $line);
@@ -54,16 +54,16 @@ class ProcessManager
 	private function status()
 	{
 		$pids = $this->getPids();
-		if (sizeof($pids) === 2) echo ("template is running... (pids " . implode(" ", $pids) . ")\n");
-		elseif (sizeof($pids)) echo ("WARNING; template is HALF running... (pids " . implode(" ", $pids) . ")\n");
-		else echo ("template is stopped.\n");
+		if (sizeof($pids) === 2) echo ("ash-discord is running... (pids " . implode(" ", $pids) . ")\n");
+		elseif (sizeof($pids)) echo ("WARNING; ash-discord is HALF running... (pids " . implode(" ", $pids) . ")\n");
+		else echo ("ash-discord is stopped.\n");
 	}
 
 	private function start()
 	{
 		$pids = $this->getPids();
-		if (sizeof($pids)) die("ERROR: template is already running.  Not starting.\n");
-		exec("nohup template wrapper </dev/null >> " . __DIR__ . "/logs.d/wrapper.log 2>&1 &");
+		if (sizeof($pids)) die("ERROR: ash-discord is already running.  Not starting.\n");
+		exec("nohup ash-discord wrapper </dev/null >> " . __DIR__ . "/logs.d/wrapper.log 2>&1 &");
 		usleep(10000);
 		$this->status();
 	}
@@ -92,7 +92,7 @@ class ProcessManager
 	private function wrapper()
 	{
 		while (true) {
-			passthru("template main");
+			passthru("ash-discord main");
 			sleep(1);
 		}
 	}

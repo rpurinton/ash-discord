@@ -1,1 +1,1 @@
-template restart && tail -f logs.d/wrapper.log
+ash-discord restart && tail -f logs.d/wrapper.log
