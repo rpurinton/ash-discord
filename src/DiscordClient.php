@@ -102,18 +102,18 @@ class DiscordClient
 		$in_content = escapeshellarg($in_content);
 		$cmd = "ash /m $in_content";
 		while (strpos($cmd, "  ") !== false) $cmd = str_replace("  ", " ", $cmd);
-		$home_dir = trim(shell_exec("echo ~"));
-		chdir($home_dir);
-		$message->channel->broadcastTyping();
+		$guild = $this->discord->guilds[$message->d->guild_id];
+		$channel = $guild->channels[$message->d->channel_id];
+		$channel->broadcastTyping();
+		chdir(trim(shell_exec("echo ~")));
 		$result = shell_exec($cmd);
-		$this->MESSAGE_CREATE($message, $result);
+		$this->MESSAGE_CREATE($channel, $result);
 		return true;
 	}
 
-	private function MESSAGE_CREATE($message, $result)
+	private function MESSAGE_CREATE($channel, $result)
 	{
-		$guild = $this->discord->guilds[$message->d->guild_id];
-		$channel = $guild->channels[$message->d->channel_id];
+
 		if (strlen($result) < 2000) {
 			$channel->sendMessage($result);
 			return true;
