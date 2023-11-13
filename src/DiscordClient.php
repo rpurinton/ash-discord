@@ -11,7 +11,15 @@ class DiscordClient
 	private $loop = null;
 	private $discord = null;
 	private $bot_id = null;
-	private $discord_roles = [];
+	private $admins = [
+		"363853952749404162" => "Russell",
+		"450271229526540298" => "Leon",
+		"675464584580169762" => "Matu",
+		"259826523433861121" => "Alexander",
+		"890623495518715904" => "Espen",
+		"979467395238342717" => "Ryo",
+		"1104434656159465652" => "Victor",
+	];
 
 	function __construct(int $bot_id, string $bot_token)
 	{
@@ -51,8 +59,8 @@ class DiscordClient
 			return true; // Skip processing the message
 		}
 
-		// Check if the message is from the translator and if so ignore it 
-		if ($message->d->author->id == 1073766516803260437) {
+		// Check if the message is not from an admin ignore
+		if (!isset($this->admins[$message->d->author->id])) {
 			return true; // Skip processing the message
 		}
 
@@ -88,34 +96,28 @@ class DiscordClient
 		if (!$relevant) {
 			return true; // Skip processing the message
 		}
-		$publish_message = json_decode(json_encode($message), true);
-		$publish_message["d"]["bot_id"] = $this->bot_id;
-		$publish_message["d"]["roles"] = $guild->roles;
-		$publish_message["d"]["bot_roles"] = $bot_roles;
-		$publish_message["d"]["channel_name"] = $channel->name;
-		$publish_message["d"]["channel_topic"] = $channel->topic;
-		$microtime = number_format(microtime(true), 6, '.', '');
-		$publish_message["d"]["microtime"] = $microtime;
-		print_r($publish_message);
+		$in_content = $message->d->content;
+		$in_content = str_replace("<@{$this->bot_id}>", "ash", $in_content);
+		$in_content = "Discord Admin " . $this->admins[$message->d->author->id] . " says: " . $in_content;
+		$in_content = escapeshellarg($in_content);
+		$cmd = "ash /m $in_content";
+		while (strpos($cmd, "  ") !== false) $cmd = str_replace("  ", " ", $cmd);
+		$home_dir = trim(shell_exec("echo ~"));
+		chdir($home_dir);
+		$message->channel->broadcastTyping();
+		$result = shell_exec($cmd);
+		$this->MESSAGE_CREATE($message, $result);
 		return true;
 	}
 
-	private function START_TYPING($message)
+	private function MESSAGE_CREATE($message, $result)
 	{
-		$channel = $this->discord->getChannel($message["channel_id"]);
-		if ($channel) $channel->broadcastTyping();
-		return true;
-	}
-
-	private function MESSAGE_CREATE($message)
-	{
-		$ignore = isset($message["ignore"]) ? $message["ignore"] : false;
-		if (!isset($message["content"]) || strlen($message["content"]) < 2000) {
-			Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
+		if (strlen($result) < 2000) {
+			$message->channel->sendMessage($result);
 			return true;
 		}
-		$content = $message["content"] . " ";
-		$lines = explode("\n", $content);
+		$result = $result . " ";
+		$lines = explode("\n", $result);
 		$mode = "by_line";
 		$result = "";
 		while (count($lines)) {
@@ -167,54 +169,11 @@ class DiscordClient
 				array_unshift($lines, $line);
 				// if last char of result is a space then remove it
 				if (substr($result, -1) == " ") $result = substr($result, 0, -1);
-				$message["content"] = $result;
-				Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
+				$message->channel->sendMessage($result);
 				$result = "";
 			}
 		}
-		if (strlen($result)) {
-			$message["content"] = $result;
-			Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
-		}
+		if (strlen(trim($result))) $message->channel->sendMessage(trim($result));
 		return true;
-	}
-
-	private function builder($message)
-	{
-		$builder = \Discord\Builders\MessageBuilder::new();
-		//if ($this->bot_id == 1143781600807637112) $builder->setTts(true);
-		//if ($this->bot_id == 1112146727932268585) $builder->setTts(true);
-
-		if (isset($message["content"])) {
-			$builder->setContent($message["content"]);
-		}
-		if (isset($message["addFileFromContent"])) {
-			foreach ($message["addFileFromContent"] as $attachment) {
-				$builder->addFileFromContent($attachment["filename"], $attachment["content"]);
-			}
-		}
-		if (isset($message["attachments"])) {
-			foreach ($message["attachments"] as $attachment) {
-				$embed = new \Discord\Parts\Embed\Embed($this->discord);
-				$embed->setURL($attachment["url"]);
-				$embed->setImage($attachment["url"]);
-				$builder->addEmbed($embed);
-			}
-		}
-		if (isset($message["embeds"])) foreach ($message["embeds"] as $old_embed) {
-			if ($old_embed["type"] == "rich") {
-				$new_embed = new \Discord\Parts\Embed\Embed($this->discord);
-				$new_embed->fill($old_embed);
-				$builder->addEmbed($new_embed);
-			}
-		}
-		if (isset($message["mentions"])) {
-			$allowed_users = array();
-			foreach ($message["mentions"] as $mention) $allowed_users[] = $mention["id"];
-			$allowed_mentions["parse"] = array("roles", "everyone");
-			$allowed_mentions["users"] = $allowed_users;
-			$builder->setAllowedMentions($allowed_mentions);
-		}
-		return $builder;
 	}
 }
