@@ -2,11 +2,7 @@
 
 namespace RPurinton\AshDiscord;
 
-require_once(__DIR__ . "/PromptWriter.php");
-require_once(__DIR__ . "/BunnyAsyncClient.php");
-
 use React\Async;
-use \Discord\WebSockets\Intents;
 
 class DiscordClient extends ConfigLoader
 {
@@ -21,12 +17,9 @@ class DiscordClient extends ConfigLoader
 	{
 		parent::__construct();
 		$this->bot_id = $bot_id;
-		$this->promptwriter = new PromptWriter;
 		$this->loop = \React\EventLoop\Loop::get();
 		$discord_config["token"] = $bot_token;
 		$discord_config["loop"] = $this->loop;
-		$discord_config['intents'] = Intents::getDefaultIntents() | Intents::GUILD_MEMBERS;
-		$discord_config['loadAllMembers'] = true;
 		$this->discord = new \Discord\Discord($discord_config);
 		$this->discord->on("ready", $this->ready(...));
 		$this->discord->run();
@@ -34,48 +27,21 @@ class DiscordClient extends ConfigLoader
 
 	private function ready()
 	{
-		$this->bunny = new BunnyAsyncClient($this->loop, "discommand_" . $this->bot_id, $this->outbox(...));
 		$this->discord->on("raw", $this->inbox(...));
-		$bot_avatar_url = $this->promptwriter->escape($this->discord->user->avatar);
-		$this->promptwriter->query("UPDATE `discord_bots` SET `bot_avatar` = '$bot_avatar_url' WHERE `bot_id` = '{$this->bot_id}'");
-		extract($this->promptwriter->single("SELECT `job_title` FROM `discord_bots` WHERE `bot_id` = '{$this->bot_id}'"));
+		$pretty_name = shell_exec("cat /etc/os-release | grep PRETTY_NAME | cut -d '=' -f 2 | sed 's/\"//g'");
 		$activity = $this->discord->factory(\Discord\Parts\User\Activity::class, [
-			'name' => $job_title,
+			'name' => $pretty_name,
 			'type' => \Discord\Parts\User\Activity::TYPE_PLAYING
 		]);
 		$this->discord->updatePresence($activity);
-		$this->promptwriter->query("DELETE FROM `dc_bots2server` WHERE `bot_id` = '{$this->bot_id}'");
-		$query = "";
-		foreach ($this->discord->guilds as $guild) {
-			$query .= "INSERT INTO `dc_bots2server` (`bot_id`, `server_id`) VALUES ('{$this->bot_id}', '{$guild->id}');";
-			$query .= "UPDATE `discord_servers` SET `server_avatar` = '{$guild->icon}' WHERE `server_id` = '{$guild->id}';";
-		}
-		if ($query != "") $this->promptwriter->multi($query);
 		echo ("bot_id: " . $this->bot_id . " is Ready!\n");
 	}
 
 	private function inbox($message, $discord)
 	{
-		//print_r($message);
+		print_r($message);
 		if ($message->op == 11) {
-			$this->promptwriter->query("SELECT 1");
-			return $this->bunny->publish("discommand_inbox", $message);
-		}
-		if ($message->t == "GUILD_CREATE") {
-			$guild_id = $message->d->id;
-			$sql = "INSERT INTO `dc_bots2server` (`bot_id`, `server_id`) VALUES ('{$this->bot_id}', '{$guild_id}') ON DUPLICATE KEY UPDATE `server_id` = '{$guild_id}';";
-			$sql .= "UPDATE `discord_servers` SET `server_avatar` = '{$message->d->icon}' WHERE `server_id` = '{$guild_id}';";
-			$this->promptwriter->multi($sql);
-			return true;
-		}
-		if ($message->t == "GUILD_DELETE") {
-			$guild_id = $message->d->id;
-			$this->promptwriter->query("DELETE FROM `dc_bots2server` WHERE `bot_id` = '{$this->bot_id}' AND `server_id` = '{$guild_id}'");
-			return true;
-		}
-		if ($message->t == "MESSAGE_DELETE") {
-			$this->promptwriter->query("DELETE FROM `web_context` WHERE `message_id` = '{$message->d->id}'");
-			return true;
+			return;
 		}
 		if ($message->t != "MESSAGE_CREATE") {
 			return true; // Skip processing the message
@@ -96,9 +62,6 @@ class DiscordClient extends ConfigLoader
 			return true; // Skip processing the message
 		}
 
-		extract($this->promptwriter->single("SELECT count(1) as `relevant` FROM `discord_channels` WHERE `channel_id` = '{$message->d->channel_id}' AND `bot_id` = '{$this->bot_id}' AND `dedicated` = '1'"));
-		if ($relevant) usleep(100000);
-
 		if (isset($message->d->referenced_message)) {
 			if ($message->d->referenced_message->author->id == $this->bot_id) {
 				$relevant = true;
@@ -112,14 +75,6 @@ class DiscordClient extends ConfigLoader
 		$bot_roles = [];
 		foreach ($bot_member->roles as $role) {
 			$bot_roles[] = $role->id;
-		}
-
-		if ($this->bot_id == 1125851451906850867) {
-			if ($message->d->guild_id == 1125849549630603345) {
-				if (substr($channel->name, 0, 7) == "ticket-") {
-					$relevant = true;
-				}
-			}
 		}
 
 		foreach ($message->d->mention_roles as $role_id) {
@@ -142,8 +97,7 @@ class DiscordClient extends ConfigLoader
 		$publish_message["d"]["channel_topic"] = $channel->topic;
 		$microtime = number_format(microtime(true), 6, '.', '');
 		$publish_message["d"]["microtime"] = $microtime;
-		$this->promptwriter->query("INSERT INTO `discord_channels` (`channel_id`, `bot_id`, `microtime`) VALUES ('{$message->d->channel_id}', '{$this->bot_id}', '{$microtime}') ON DUPLICATE KEY UPDATE `microtime` = '{$microtime}'");
-		return $this->bunny->publish("discommand_inbox", $publish_message);
+		print_r($publish_message);
 		return true;
 	}
 
@@ -203,8 +157,7 @@ class DiscordClient extends ConfigLoader
 	{
 		$ignore = isset($message["ignore"]) ? $message["ignore"] : false;
 		if (!isset($message["content"]) || strlen($message["content"]) < 2000) {
-			if ($ignore) Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
-			else $this->log_outgoing(Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message))));
+			Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
 			return true;
 		}
 		$content = $message["content"] . " ";
@@ -261,15 +214,13 @@ class DiscordClient extends ConfigLoader
 				// if last char of result is a space then remove it
 				if (substr($result, -1) == " ") $result = substr($result, 0, -1);
 				$message["content"] = $result;
-				if ($ignore) Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
-				else $this->log_outgoing(Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message))));
+				Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
 				$result = "";
 			}
 		}
 		if (strlen($result)) {
 			$message["content"] = $result;
-			if ($ignore) Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
-			else $this->log_outgoing(Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message))));
+			Async\await($this->discord->getChannel($message["channel_id"])->sendMessage($this->builder($message)));
 		}
 		return true;
 	}
@@ -311,21 +262,5 @@ class DiscordClient extends ConfigLoader
 			$builder->setAllowedMentions($allowed_mentions);
 		}
 		return $builder;
-	}
-
-	private function log_outgoing($message)
-	{
-		$message_id = $message->id;
-		$microtime = number_format(microtime(true), 6, '.', '');
-		$bot_id = $message->author->id;
-		$user_id = 363853952749404162;
-		$role = 'assistant';
-		$content = $message->content;
-		//foreach ($this->discord_roles as $key => $value) $content = str_replace("<@&" . $key . ">", $value, $content);
-		//foreach ($this->promptwriter->bot_names as $key => $value) $content = str_replace("<@" . $key . ">", $value, $content);
-		$token_count = $this->promptwriter->token_count($content);
-		$content = $this->promptwriter->escape($content);
-		$this->promptwriter->query("INSERT INTO `web_context` (`message_id`,`microtime`,`sender_id`,`receiver_ids`,`role`,`content`,`token_count`,`discord`) VALUES ('$message_id','$microtime','$bot_id','$user_id','$role','$content','$token_count','1')");
-		return true;
 	}
 }

@@ -4,4 +4,4 @@
 namespace RPurinton\AshDiscord;
 
 require_once(__DIR__ . "/DiscordClient.php");
-new DiscordClient;
+new DiscordClient("bot_id", "bot_token");
