@@ -104,7 +104,7 @@ class DiscordClient
 		while (strpos($cmd, "  ") !== false) $cmd = str_replace("  ", " ", $cmd);
 		$guild = $this->discord->guilds[$message->d->guild_id];
 		$channel = $guild->channels[$message->d->channel_id];
-		$channel->broadcastTyping();
+		Async\Await($channel->broadcastTyping());
 		chdir(trim(shell_exec("echo ~")));
 		$result = shell_exec($cmd);
 		$this->MESSAGE_CREATE($channel, $result);
