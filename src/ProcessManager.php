@@ -91,8 +91,17 @@ class ProcessManager
 
 	private function wrapper()
 	{
+		$pidFile = "/var/run/ash-discord.pid";
+		if (file_exists($pidFile)) die("ERROR: pid file exists.  Not starting.\n");
+		$pid = getmypid();
+		file_put_contents($pidFile, $pid);
+		register_shutdown_function(function () use ($pid, $pidFile) {
+			@unlink($pidFile);
+			$this->kill();
+		});
 		while (true) {
 			passthru("ash-discord main");
+			echo ("ash-discord main exited.  Restarting...\n");
 			sleep(1);
 		}
 	}
