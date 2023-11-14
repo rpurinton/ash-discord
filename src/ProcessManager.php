@@ -97,7 +97,6 @@ class ProcessManager
 		file_put_contents($pidFile, $pid);
 		register_shutdown_function(function () use ($pid, $pidFile) {
 			@unlink($pidFile);
-			$this->kill();
 		});
 		while (true) {
 			passthru("ash-discord main");
